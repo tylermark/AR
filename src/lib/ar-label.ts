@@ -101,7 +101,7 @@ function roundRect(
   ctx.quadraticCurveTo(x + w, y + h, x + w - r.br, y + h)
   ctx.lineTo(x + r.bl, y + h)
   ctx.quadraticCurveTo(x, y + h, x, y + h - r.bl)
-  ctx.lineTo(x, y + r.tl)
+  ctx.lineTo(x, y + r.bl)
   ctx.quadraticCurveTo(x, y, x + r.tl, y)
   ctx.closePath()
 }
