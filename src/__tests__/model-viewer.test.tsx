@@ -5,7 +5,7 @@
  * on the attributes directly without needing the full Next.js page machinery.
  */
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render } from '@testing-library/react'
 import React from 'react'
 
 // ---------------------------------------------------------------------------

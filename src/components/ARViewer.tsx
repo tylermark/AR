@@ -181,7 +181,7 @@ export default function ARViewer({ modelUrl, annotations }: ARViewerProps) {
     } catch (err) {
       console.error('WebXR AR failed:', err)
       if (sessionRef.current) {
-        try { sessionRef.current.end() } catch (_) { /* ignore */ }
+        try { sessionRef.current.end() } catch { /* ignore */ }
         sessionRef.current = null
       }
       setActive(false)

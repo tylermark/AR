@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
     const glbOnly = annotations.length - ifcEnriched
 
     // Upload file to Supabase Storage bucket 'models'
-    const { data: storageData, error: storageError } = await supabase.storage
+    const { error: storageError } = await supabase.storage
       .from('models')
       .upload(uniqueFileName, buffer, {
         contentType: file.type || 'model/gltf-binary',
