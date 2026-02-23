@@ -5,6 +5,8 @@ import { notFound, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import type { Model, Annotation } from '@/types/model'
+import dynamic from 'next/dynamic'
+const ARViewer = dynamic(() => import('@/components/ARViewer'), { ssr: false })
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -117,16 +119,9 @@ export default function ModelPage() {
               </button>
             ))}
 
-            <div
-              slot="ar-button"
-              className="absolute bottom-6 right-6 bg-amber-500 hover:bg-amber-400 text-arfab-black
-                         font-mono font-bold uppercase tracking-widest text-sm px-5 py-3 rounded-sm
-                         cursor-pointer transition-colors shadow-lg"
-            >
-              View in AR
-            </div>
           {/* @ts-expect-error model-viewer is a custom element */}
           </model-viewer>
+          <ARViewer modelUrl={model.file_url} annotations={annotations} />
         </div>
 
         <div className="border-t border-steel-800 px-4 py-2">
