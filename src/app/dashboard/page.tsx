@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import QRCode from 'qrcode'
 import type { Model } from '@/types/model'
@@ -11,6 +12,7 @@ interface ModelWithQR extends Model {
 }
 
 export default function DashboardPage() {
+  const router = useRouter()
   const [models, setModels] = useState<ModelWithQR[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -19,6 +21,10 @@ export default function DashboardPage() {
     const fetchModels = async () => {
       try {
         const res = await fetch('/api/models')
+        if (res.status === 401) {
+          router.push('/login')
+          return
+        }
         if (!res.ok) throw new Error(`Failed to fetch models (${res.status})`)
         const data: Model[] = await res.json()
 

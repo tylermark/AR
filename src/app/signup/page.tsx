@@ -26,7 +26,7 @@ export default function SignupPage() {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: authData.user.id, fullName, companyName }),
+        body: JSON.stringify({ fullName, companyName }),
       })
       if (!res.ok) {
         const body = await res.json()

@@ -119,6 +119,9 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single()
     const companyId = profile?.company_id
+    if (!companyId) {
+      return NextResponse.json({ error: 'Company profile not found' }, { status: 403 })
+    }
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null
