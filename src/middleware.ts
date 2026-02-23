@@ -27,7 +27,7 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Protect dashboard and upload pages
+  // Protect dashboard and root (upload) pages
   const protectedPaths = ['/dashboard', '/']
   const isProtected = protectedPaths.some(p => request.nextUrl.pathname === p)
 
