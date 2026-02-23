@@ -108,7 +108,23 @@ function parseGlbAnnotations(buffer: Buffer): Annotation[] {
 export async function POST(request: NextRequest) {
   try {
     const authClient = await createSupabaseServerClient()
-    const { data: { user } } = await authClient.auth.getUser()
+    let user = (await authClient.auth.getUser()).data.user
+
+    // Fallback to Bearer token auth (for desktop plugin)
+    if (!user) {
+      const authHeader = request.headers.get('Authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.slice(7)
+        const { createClient } = await import('@supabase/supabase-js')
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        )
+        const { data } = await supabase.auth.getUser(token)
+        user = data.user
+      }
+    }
+
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
