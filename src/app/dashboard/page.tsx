@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import QRCode from 'qrcode'
 import type { Model } from '@/types/model'
+import { createClient } from '@/lib/supabase'
 
 interface ModelWithQR extends Model {
   qrDataUrl: string | null
@@ -48,6 +49,12 @@ export default function DashboardPage() {
     fetchModels()
   }, [])
 
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -78,13 +85,23 @@ export default function DashboardPage() {
               {loading ? 'Loading...' : `${models.length} model${models.length !== 1 ? 's' : ''} uploaded`}
             </p>
           </div>
-          <Link
-            href="/"
-            className="bg-amber-500 hover:bg-amber-400 text-arfab-black font-mono font-bold
-                       uppercase tracking-widest text-xs px-5 py-3 rounded-sm transition-colors"
-          >
-            + Upload Model
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="bg-amber-500 hover:bg-amber-400 text-arfab-black font-mono font-bold
+                         uppercase tracking-widest text-xs px-5 py-3 rounded-sm transition-colors"
+            >
+              + Upload Model
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="text-steel-400 hover:text-red-400 font-mono text-xs uppercase
+                         tracking-widest transition-colors border border-steel-700
+                         hover:border-red-800 px-3 py-2 rounded-sm"
+            >
+              Log Out
+            </button>
+          </div>
         </div>
 
         {loading && (
