@@ -27,6 +27,7 @@ export default function ARViewer({ modelUrl, annotations }: ARViewerProps) {
 
   async function startAR() {
     if (!canvasRef.current || !navigator.xr) return
+    if (sessionRef.current) return  // already active, don't start another session
 
     try {
       // Lazy-load Three.js (large library — only load when AR is actually requested)
@@ -61,6 +62,8 @@ export default function ARViewer({ modelUrl, annotations }: ARViewerProps) {
         loader.load(modelUrl, resolve, undefined, reject)
       })
       const model3d = gltf.scene
+      // Revit exports GLB in Z-up (right-hand). Rotate -90° around X to convert to Y-up.
+      model3d.rotation.x = -Math.PI / 2
       model3d.visible = false
       scene.add(model3d)
 
@@ -86,14 +89,22 @@ export default function ARViewer({ modelUrl, annotations }: ARViewerProps) {
       const session = await navigator.xr.requestSession('immersive-ar', {
         requiredFeatures: ['hit-test'],
         optionalFeatures: ['dom-overlay'],
-      })
+        domOverlay: typeof document !== 'undefined' ? { root: document.body } : undefined,
+      } as XRSessionInit)
       sessionRef.current = session
       renderer.xr.setReferenceSpaceType('local')
       await renderer.xr.setSession(session as XRSession)
 
       const refSpace = await session.requestReferenceSpace('local')
       const viewerSpace = await session.requestReferenceSpace('viewer')
-      const hitTestSource = await session.requestHitTestSource!({ space: viewerSpace })
+      let hitTestSource: XRHitTestSource | undefined
+      if (session.requestHitTestSource) {
+        hitTestSource = await session.requestHitTestSource({ space: viewerSpace })
+      } else {
+        // Browser opened AR session but doesn't support hit-test
+        await session.end()
+        return
+      }
 
       let isPlaced = false
 
@@ -136,6 +147,30 @@ export default function ARViewer({ modelUrl, annotations }: ARViewerProps) {
       session.addEventListener('end', () => {
         hitTestSource?.cancel()
         renderer.setAnimationLoop(null)
+        // Dispose all scene geometry, materials, and textures
+        scene.traverse((obj) => {
+          const mesh = obj as import('three').Mesh
+          if (mesh.geometry) mesh.geometry.dispose()
+          if (mesh.material) {
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach((m: import('three').Material) => {
+                const mat = m as import('three').MeshBasicMaterial
+                if (mat.map) mat.map.dispose()
+                m.dispose()
+              })
+            } else {
+              const mat = mesh.material as import('three').MeshBasicMaterial
+              if (mat.map) mat.map.dispose()
+              mesh.material.dispose()
+            }
+          }
+          // Dispose sprite materials and textures
+          const sprite = obj as import('three').Sprite
+          if (sprite.isSprite && sprite.material) {
+            if (sprite.material.map) sprite.material.map.dispose()
+            sprite.material.dispose()
+          }
+        })
         renderer.dispose()
         window.removeEventListener('resize', onResize)
         sessionRef.current = null
