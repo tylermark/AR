@@ -103,6 +103,7 @@ export default function ARViewer({ modelUrl, annotations }: ARViewerProps) {
       } else {
         // Browser opened AR session but doesn't support hit-test
         await session.end()
+        sessionRef.current = null
         return
       }
 
@@ -179,6 +180,10 @@ export default function ARViewer({ modelUrl, annotations }: ARViewerProps) {
       })
     } catch (err) {
       console.error('WebXR AR failed:', err)
+      if (sessionRef.current) {
+        try { sessionRef.current.end() } catch (_) { /* ignore */ }
+        sessionRef.current = null
+      }
       setActive(false)
       setPlaced(false)
     }
