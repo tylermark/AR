@@ -13,6 +13,7 @@ export default function ARViewer({ modelUrl, annotations }: ARViewerProps) {
   const [active, setActive] = useState(false)
   const [placed, setPlaced] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const sessionRef = useRef<XRSession | null>(null)
 
   useEffect(() => {
     if (typeof navigator === 'undefined' || !navigator.xr) {
@@ -86,6 +87,7 @@ export default function ARViewer({ modelUrl, annotations }: ARViewerProps) {
         requiredFeatures: ['hit-test'],
         optionalFeatures: ['dom-overlay'],
       })
+      sessionRef.current = session
       renderer.xr.setReferenceSpaceType('local')
       await renderer.xr.setSession(session as XRSession)
 
@@ -132,9 +134,11 @@ export default function ARViewer({ modelUrl, annotations }: ARViewerProps) {
 
       // --- Session end cleanup ---
       session.addEventListener('end', () => {
+        hitTestSource?.cancel()
         renderer.setAnimationLoop(null)
         renderer.dispose()
         window.removeEventListener('resize', onResize)
+        sessionRef.current = null
         setActive(false)
         setPlaced(false)
       })
@@ -157,16 +161,17 @@ export default function ARViewer({ modelUrl, annotations }: ARViewerProps) {
       >
         View in AR
       </button>
+      {/* Canvas is always mounted so canvasRef.current is available when startAR runs */}
+      <canvas
+        ref={canvasRef}
+        className={`fixed inset-0 z-50 w-full h-full ${active ? 'block' : 'hidden'}`}
+      />
       {active && (
         <>
-          <canvas
-            ref={canvasRef}
-            className="fixed inset-0 z-50 w-full h-full"
-          />
           <button
             className="fixed top-6 right-6 z-[60] bg-black border border-gray-700
                        text-gray-100 font-mono text-sm px-4 py-2 rounded-sm"
-            onClick={() => setActive(false)}
+            onClick={() => sessionRef.current?.end()}
           >
             Exit AR
           </button>
