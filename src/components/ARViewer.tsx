@@ -9,6 +9,7 @@ interface ARViewerProps {
 }
 
 export default function ARViewer({ modelUrl, annotations }: ARViewerProps) {
+  // TODO(Task 4): wire modelUrl and annotations into WebXR Three.js session
   const [supported, setSupported] = useState<boolean | null>(null)
   const [active, setActive] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -18,7 +19,9 @@ export default function ARViewer({ modelUrl, annotations }: ARViewerProps) {
       setSupported(false)
       return
     }
-    navigator.xr.isSessionSupported('immersive-ar').then(setSupported)
+    navigator.xr.isSessionSupported('immersive-ar')
+      .then(setSupported)
+      .catch(() => setSupported(false))
   }, [])
 
   if (supported === false) return null
