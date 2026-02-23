@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { parseIfcBuffer } from '@/lib/ifc-parser'
 import { v4 as uuidv4 } from 'uuid'
 import type { Annotation } from '@/types/model'
@@ -106,6 +107,19 @@ function parseGlbAnnotations(buffer: Buffer): Annotation[] {
 
 export async function POST(request: NextRequest) {
   try {
+    const authClient = await createSupabaseServerClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const serviceClient = createServerSupabaseClient()
+    const { data: profile } = await serviceClient
+      .from('profiles')
+      .select('company_id')
+      .eq('id', user.id)
+      .single()
+    const companyId = profile?.company_id
+
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const name = formData.get('name') as string | null
@@ -127,8 +141,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    const supabase = createServerSupabaseClient()
 
     // Generate unique filename
     const fileExt = fileName.endsWith('.glb') ? 'glb' : 'gltf'
@@ -185,7 +197,7 @@ export async function POST(request: NextRequest) {
     const glbOnly = annotations.length - ifcEnriched
 
     // Upload file to Supabase Storage bucket 'models'
-    const { error: storageError } = await supabase.storage
+    const { error: storageError } = await serviceClient.storage
       .from('models')
       .upload(uniqueFileName, buffer, {
         contentType: file.type || 'model/gltf-binary',
@@ -201,19 +213,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Get public URL for the uploaded file
-    const { data: publicUrlData } = supabase.storage
+    const { data: publicUrlData } = serviceClient.storage
       .from('models')
       .getPublicUrl(uniqueFileName)
 
     const fileUrl = publicUrlData.publicUrl
 
     // Insert metadata into models table
-    const { data: modelData, error: dbError } = await supabase
+    const { data: modelData, error: dbError } = await serviceClient
       .from('models')
       .insert({
         name: name.trim(),
         file_url: fileUrl,
         annotations,
+        company_id: companyId,
       })
       .select()
       .single()
@@ -221,7 +234,7 @@ export async function POST(request: NextRequest) {
     if (dbError) {
       console.error('Database insert error:', dbError)
       // Attempt to clean up uploaded file
-      await supabase.storage.from('models').remove([uniqueFileName])
+      await serviceClient.storage.from('models').remove([uniqueFileName])
       return NextResponse.json(
         { error: 'Failed to save model metadata', details: dbError.message },
         { status: 500 }
