@@ -3,15 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #0a0a0a;
+  --foreground: #f3f4f6;
 }
 
 body {
@@ -20,8 +13,46 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* model-viewer fills its container */
+model-viewer {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 70vh;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* model-viewer hotspot labels — always visible in 3D and AR */
+.hotspot-btn {
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid #f59e0b;
+  color: #fbbf24;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: default;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  position: relative;
+}
+
+/* Small dot at the anchor point */
+.hotspot-btn::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  background: #f59e0b;
+  border-radius: 50%;
 }
