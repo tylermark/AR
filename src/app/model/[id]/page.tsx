@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { Model, Annotation } from '@/types/model'
 import dynamic from 'next/dynamic'
 const ARViewer = dynamic(() => import('@/components/ARViewer'), { ssr: false })
+const IOSARButton = dynamic(() => import('@/components/IOSARButton'), { ssr: false })
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -58,6 +59,8 @@ export default function ModelPage() {
 
   const annotations: Annotation[] = Array.isArray(model.annotations) ? model.annotations : []
 
+  const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)
+
   // Build a minimal label for the AR hotspot — just the element ID or index.
   function getShortLabel(ann: Annotation): string {
     if (ann.metadata?.revit_element_id) return `#${ann.metadata.revit_element_id}`
@@ -92,8 +95,6 @@ export default function ModelPage() {
           <model-viewer
             src={model.file_url}
             alt={`3D model of ${model.name}`}
-            ar
-            ar-modes="webxr scene-viewer quick-look"
             camera-controls
             shadow-intensity="1"
             style={{
@@ -121,7 +122,11 @@ export default function ModelPage() {
 
           {/* @ts-expect-error model-viewer is a custom element */}
           </model-viewer>
-          <ARViewer modelUrl={model.file_url} annotations={annotations} />
+          {isIOS ? (
+            <IOSARButton modelUrl={model.file_url} />
+          ) : (
+            <ARViewer modelUrl={model.file_url} annotations={annotations} />
+          )}
         </div>
 
         <div className="border-t border-steel-800 px-4 py-2">
