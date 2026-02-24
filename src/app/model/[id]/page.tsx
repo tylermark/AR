@@ -94,8 +94,6 @@ export default function ModelPage() {
           <model-viewer
             src={glbSrc}
             alt={`3D model of ${model.name}`}
-            ar
-            ar-modes="webxr scene-viewer quick-look"
             camera-controls
             shadow-intensity="1"
             style={{
@@ -123,6 +121,20 @@ export default function ModelPage() {
 
           {/* @ts-expect-error model-viewer is a custom element */}
           </model-viewer>
+          {/* iOS: direct Quick Look link (iOS 17+ supports GLB natively) */}
+          <a
+            href={glbSrc}
+            rel="ar"
+            className="absolute bottom-6 right-6 bg-amber-500 hover:bg-amber-400
+                       text-black font-mono font-bold uppercase tracking-widest
+                       text-sm px-5 py-3 rounded-sm transition-colors shadow-lg z-10
+                       no-underline inline-block"
+          >
+            {/* Quick Look requires a child img element */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="" alt="" style={{ display: 'none' }} />
+            View in AR
+          </a>
           <ARViewer modelUrl={glbSrc} annotations={annotations} />
         </div>
 

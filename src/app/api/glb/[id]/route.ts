@@ -7,7 +7,7 @@ export const maxDuration = 30
 export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
-) {
+): Promise<NextResponse> {
   const supabase = createServerSupabaseClient()
 
   const { data: model, error } = await supabase
