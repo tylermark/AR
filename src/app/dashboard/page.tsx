@@ -53,7 +53,7 @@ export default function DashboardPage() {
     }
 
     fetchModels()
-  }, [])
+  }, [router])
 
   async function handleLogout() {
     const supabase = createClient()

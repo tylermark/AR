@@ -5,7 +5,7 @@ import { createServerSupabaseClient } from '@/lib/supabase'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
   try {
     const authClient = await createSupabaseServerClient()
     const { data: { user } } = await authClient.auth.getUser()
