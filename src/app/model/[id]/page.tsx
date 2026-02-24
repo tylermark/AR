@@ -58,7 +58,7 @@ export default function ModelPage() {
 
   const annotations: Annotation[] = Array.isArray(model.annotations) ? model.annotations : []
 
-  const usdzSrc = `/api/usdz/${id}`
+  const glbSrc = `/api/glb/${id}`
 
   // Build a minimal label for the AR hotspot — just the element ID or index.
   function getShortLabel(ann: Annotation): string {
@@ -92,8 +92,7 @@ export default function ModelPage() {
         <div className="flex-1 relative bg-arfab-black">
           {/* @ts-expect-error model-viewer is a custom element */}
           <model-viewer
-            src={model.file_url}
-            ios-src={usdzSrc}
+            src={glbSrc}
             alt={`3D model of ${model.name}`}
             ar
             ar-modes="webxr scene-viewer quick-look"
@@ -124,7 +123,7 @@ export default function ModelPage() {
 
           {/* @ts-expect-error model-viewer is a custom element */}
           </model-viewer>
-          <ARViewer modelUrl={model.file_url} annotations={annotations} />
+          <ARViewer modelUrl={glbSrc} annotations={annotations} />
         </div>
 
         <div className="border-t border-steel-800 px-4 py-2">
