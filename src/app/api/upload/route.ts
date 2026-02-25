@@ -146,12 +146,19 @@ export async function POST(request: NextRequest) {
     const ifcFile = formData.get('ifc') as File | null
     const sheetNumber = (formData.get('sheet_number') as string | null)?.trim() || null
     const revision = (formData.get('revision') as string | null)?.trim() || 'A'
-    const colorMapFile = formData.get('colormap') as File | null
+    const colorMapRaw = formData.get('colormap')
     let colorMap: Record<string, number[]> | undefined
-    if (colorMapFile) {
+    if (colorMapRaw) {
       try {
-        const text = await colorMapFile.text()
-        colorMap = JSON.parse(text) as Record<string, number[]>
+        const text = typeof colorMapRaw === 'string'
+          ? colorMapRaw
+          : await (colorMapRaw as File).text()
+        const parsed = JSON.parse(text)
+        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          colorMap = parsed as Record<string, number[]>
+        } else {
+          console.error('colormap is not a JSON object, ignoring')
+        }
       } catch {
         console.error('Failed to parse colormap JSON, continuing without colors')
       }
