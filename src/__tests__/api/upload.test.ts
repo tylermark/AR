@@ -8,6 +8,23 @@ const mockStorageGetPublicUrl = vi.fn()
 const mockStorageRemove = vi.fn()
 const mockDbInsert = vi.fn()
 
+const { mockOptimizeGlbForAR } = vi.hoisted(() => ({
+  mockOptimizeGlbForAR: vi.fn(),
+}))
+vi.mock('@/lib/glb-optimize', () => ({
+  optimizeGlbForAR: mockOptimizeGlbForAR,
+}))
+
+vi.mock('@/lib/supabase-server', () => ({
+  createSupabaseServerClient: async () => ({
+    auth: {
+      getUser: async () => ({
+        data: { user: { id: 'test-user-id' } },
+      }),
+    },
+  }),
+}))
+
 vi.mock('@/lib/supabase', () => ({
   createServerSupabaseClient: () => ({
     storage: {
@@ -17,13 +34,37 @@ vi.mock('@/lib/supabase', () => ({
         remove: mockStorageRemove,
       }),
     },
-    from: () => ({
-      insert: () => ({
+    from: (table: string) => {
+      if (table === 'profiles') {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: async () => ({ data: { company_id: 'test-company-id' }, error: null }),
+            }),
+          }),
+        }
+      }
+      // models table
+      return {
         select: () => ({
-          single: mockDbInsert,
+          eq: () => ({
+            eq: () => ({
+              order: () => ({
+                limit: async () => ({ data: [], error: null }),
+              }),
+            }),
+          }),
         }),
-      }),
-    }),
+        insert: () => ({
+          select: () => ({
+            single: mockDbInsert,
+          }),
+        }),
+        update: () => ({
+          eq: async () => ({ data: null, error: null }),
+        }),
+      }
+    },
   }),
 }))
 
@@ -71,6 +112,7 @@ function glbFile(filename = 'model.glb') {
 describe('POST /api/upload', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockOptimizeGlbForAR.mockImplementation(async (buf: Uint8Array) => buf)
 
     // Default happy-path mock behaviour
     mockStorageUpload.mockResolvedValue({ data: { path: 'test-uuid-1234.glb' }, error: null })
@@ -199,5 +241,33 @@ describe('POST /api/upload', () => {
     expect(res.status).toBe(500)
     expect(body.error).toMatch(/failed to save model metadata/i)
     expect(mockStorageRemove).toHaveBeenCalledOnce()
+  })
+
+  it('passes parsed colormap to optimizeGlbForAR when colormap field is present', async () => {
+    const colorJson = JSON.stringify({ Concrete: [0.5, 0.5, 0.5, 1.0] })
+    const colorFile = new File([colorJson], 'colors.json', { type: 'application/json' })
+
+    const req = new NextRequest('http://localhost/api/upload', { method: 'POST' })
+    const fd = new FormData()
+    fd.append('file', glbFile())
+    fd.append('name', 'Model With Colors')
+    fd.append('colormap', colorFile)
+    vi.spyOn(req, 'formData').mockResolvedValue(fd)
+
+    await POST(req)
+
+    expect(mockOptimizeGlbForAR).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      { Concrete: [0.5, 0.5, 0.5, 1.0] }
+    )
+  })
+
+  it('calls optimizeGlbForAR without colormap when field is absent', async () => {
+    await POST(makeRequest(glbFile(), 'Model No Colors'))
+
+    expect(mockOptimizeGlbForAR).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      undefined
+    )
   })
 })

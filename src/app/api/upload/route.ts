@@ -146,6 +146,16 @@ export async function POST(request: NextRequest) {
     const ifcFile = formData.get('ifc') as File | null
     const sheetNumber = (formData.get('sheet_number') as string | null)?.trim() || null
     const revision = (formData.get('revision') as string | null)?.trim() || 'A'
+    const colorMapFile = formData.get('colormap') as File | null
+    let colorMap: Record<string, number[]> | undefined
+    if (colorMapFile) {
+      try {
+        const text = await colorMapFile.text()
+        colorMap = JSON.parse(text) as Record<string, number[]>
+      } catch {
+        console.error('Failed to parse colormap JSON, continuing without colors')
+      }
+    }
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -175,7 +185,7 @@ export async function POST(request: NextRequest) {
 
     // Optimize GLB for iOS AR compatibility (strip extensions, ensure PBR materials)
     try {
-      const optimized = await optimizeGlbForAR(new Uint8Array(buffer))
+      const optimized = await optimizeGlbForAR(new Uint8Array(buffer), colorMap)
       buffer = Buffer.from(optimized)
     } catch (err) {
       console.error('GLB optimization failed, using original file:', err)
