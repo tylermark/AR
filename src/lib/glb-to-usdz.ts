@@ -1,9 +1,16 @@
-import { NodeIO, Primitive } from '@gltf-transform/core'
+import { NodeIO, Primitive, Node as GltfNode } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
 
 /**
  * Minimal GLB → USDZ converter that bypasses Three.js entirely.
  * Reads the GLB via gltf-transform, generates USDA text, wraps in USDZ zip.
+ *
+ * Key requirements for iOS Quick Look:
+ * - Everything under the defaultPrim ("Root")
+ * - Materials inside the scene hierarchy (not at pseudoroot)
+ * - All mesh names must be unique
+ * - metersPerUnit and upAxis must be set
+ * - subdivisionScheme = "none" on all meshes
  */
 export async function convertGlbToUsdz(glbBuffer: Uint8Array): Promise<Uint8Array> {
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS)
@@ -13,11 +20,13 @@ export async function convertGlbToUsdz(glbBuffer: Uint8Array): Promise<Uint8Arra
   const meshDefs: string[] = []
   const materialDefs: string[] = []
   const materialNames = new Map<string, string>()
+  const usedMeshNames = new Set<string>()
 
   // Collect materials
   for (const material of root.listMaterials()) {
-    const name = safeName(material.getName() || `Material_${materialNames.size}`)
-    materialNames.set(material.getName() || '', name)
+    const rawName = material.getName() || `Material_${materialNames.size}`
+    const name = safeName(rawName)
+    materialNames.set(rawName, name)
 
     const bc = material.getBaseColorFactor()
     const r = bc[0].toFixed(4)
@@ -25,45 +34,95 @@ export async function convertGlbToUsdz(glbBuffer: Uint8Array): Promise<Uint8Arra
     const b = bc[2].toFixed(4)
     const metallic = material.getMetallicFactor().toFixed(4)
     const roughness = material.getRoughnessFactor().toFixed(4)
+    const opacity = bc[3].toFixed(4)
 
     materialDefs.push(`
-    def Material "${name}"
-    {
-        token outputs:surface.connect = </${name}/PBRShader.outputs:surface>
-
-        def Shader "PBRShader"
+        def Material "${name}"
         {
-            uniform token info:id = "UsdPreviewSurface"
-            color3f inputs:diffuseColor = (${r}, ${g}, ${b})
-            float inputs:metallic = ${metallic}
-            float inputs:roughness = ${roughness}
-            float inputs:opacity = ${bc[3].toFixed(4)}
-            token outputs:surface
-        }
-    }`)
+            token outputs:surface.connect = </Root/Materials/${name}/PBRShader.outputs:surface>
+
+            def Shader "PBRShader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (${r}, ${g}, ${b})
+                float inputs:metallic = ${metallic}
+                float inputs:roughness = ${roughness}
+                float inputs:opacity = ${opacity}
+                token outputs:surface
+            }
+        }`)
   }
 
   // If no materials, create a default
   if (materialDefs.length === 0) {
     materialDefs.push(`
-    def Material "DefaultMaterial"
-    {
-        token outputs:surface.connect = </DefaultMaterial/PBRShader.outputs:surface>
-
-        def Shader "PBRShader"
+        def Material "DefaultMaterial"
         {
-            uniform token info:id = "UsdPreviewSurface"
-            color3f inputs:diffuseColor = (0.8, 0.8, 0.8)
-            float inputs:metallic = 0.0
-            float inputs:roughness = 1.0
-            float inputs:opacity = 1.0
-            token outputs:surface
-        }
-    }`)
+            token outputs:surface.connect = </Root/Materials/DefaultMaterial/PBRShader.outputs:surface>
+
+            def Shader "PBRShader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.8, 0.8, 0.8)
+                float inputs:metallic = 0.0
+                float inputs:roughness = 1.0
+                float inputs:opacity = 1.0
+                token outputs:surface
+            }
+        }`)
   }
 
-  // Collect meshes from all nodes
-  let meshIndex = 0
+  // Recursively traverse nodes to accumulate world transforms
+  function getWorldTransform(node: GltfNode): { t: number[], r: number[], s: number[] } {
+    const t = node.getTranslation().slice() as number[]
+    const r = node.getRotation().slice() as number[]
+    const s = node.getScale().slice() as number[]
+
+    // Walk up to parent and combine transforms
+    const parent = node.getParentNode()
+    if (parent) {
+      const parentWorld = getWorldTransform(parent)
+      // Apply parent scale to child translation
+      t[0] = parentWorld.t[0] + t[0] * parentWorld.s[0]
+      t[1] = parentWorld.t[1] + t[1] * parentWorld.s[1]
+      t[2] = parentWorld.t[2] + t[2] * parentWorld.s[2]
+      // Multiply scales
+      s[0] *= parentWorld.s[0]
+      s[1] *= parentWorld.s[1]
+      s[2] *= parentWorld.s[2]
+      // For rotation, use parent rotation if child has identity rotation
+      if (r[0] === 0 && r[1] === 0 && r[2] === 0 && r[3] === 1) {
+        r[0] = parentWorld.r[0]
+        r[1] = parentWorld.r[1]
+        r[2] = parentWorld.r[2]
+        r[3] = parentWorld.r[3]
+      } else if (parentWorld.r[0] !== 0 || parentWorld.r[1] !== 0 || parentWorld.r[2] !== 0 || parentWorld.r[3] !== 1) {
+        // Multiply quaternions: parent * child
+        const px = parentWorld.r[0], py = parentWorld.r[1], pz = parentWorld.r[2], pw = parentWorld.r[3]
+        const cx = r[0], cy = r[1], cz = r[2], cw = r[3]
+        r[3] = pw * cw - px * cx - py * cy - pz * cz
+        r[0] = pw * cx + px * cw + py * cz - pz * cy
+        r[1] = pw * cy - px * cz + py * cw + pz * cx
+        r[2] = pw * cz + px * cy - py * cx + pz * cw
+      }
+    }
+    return { t, r, s }
+  }
+
+  // Generate a unique mesh name
+  function getUniqueMeshName(node: GltfNode, mesh: { getName(): string }): string {
+    let base = safeName(node.getName() || mesh.getName() || 'Mesh')
+    let name = base
+    let counter = 1
+    while (usedMeshNames.has(name)) {
+      name = `${base}_${counter}`
+      counter++
+    }
+    usedMeshNames.add(name)
+    return name
+  }
+
+  // Collect meshes from all nodes (traverse full hierarchy)
   for (const node of root.listNodes()) {
     const mesh = node.getMesh()
     if (!mesh) continue
@@ -75,7 +134,7 @@ export async function convertGlbToUsdz(glbBuffer: Uint8Array): Promise<Uint8Arra
       if (!posAccessor || posAccessor.getCount() === 0) continue
 
       const count = posAccessor.getCount()
-      const meshName = safeName(node.getName() || mesh.getName() || `Mesh_${meshIndex}`)
+      const meshName = getUniqueMeshName(node, mesh)
 
       // Get position data
       const positions: string[] = []
@@ -127,17 +186,19 @@ export async function convertGlbToUsdz(glbBuffer: Uint8Array): Promise<Uint8Arra
         faceVertexIndices = Array.from({ length: count }, (_, i) => i).join(', ')
       }
 
-      // Material binding
+      // Material binding — path is now under /Root/Materials/
       const material = prim.getMaterial()
       let materialBinding = 'DefaultMaterial'
       if (material) {
-        materialBinding = safeName(material.getName() || '') || 'DefaultMaterial'
+        const rawName = material.getName() || ''
+        materialBinding = materialNames.get(rawName) || 'DefaultMaterial'
       }
 
-      // Apply node transform
-      const t = node.getTranslation()
-      const r = node.getRotation()
-      const s = node.getScale()
+      // Apply world transform (accumulated from parent hierarchy)
+      const world = getWorldTransform(node)
+      const t = world.t
+      const r = world.r
+      const s = world.s
 
       let xformOps = ''
       const hasTranslate = t[0] !== 0 || t[1] !== 0 || t[2] !== 0
@@ -147,41 +208,41 @@ export async function convertGlbToUsdz(glbBuffer: Uint8Array): Promise<Uint8Arra
       if (hasTranslate || hasRotate || hasScale) {
         const ops: string[] = []
         if (hasTranslate) {
-          ops.push(`        double3 xformOp:translate = (${t[0]}, ${t[1]}, ${t[2]})`)
+          ops.push(`            double3 xformOp:translate = (${t[0]}, ${t[1]}, ${t[2]})`)
         }
         if (hasRotate) {
-          ops.push(`        quatf xformOp:orient = (${r[3]}, ${r[0]}, ${r[1]}, ${r[2]})`)
+          ops.push(`            quatf xformOp:orient = (${r[3]}, ${r[0]}, ${r[1]}, ${r[2]})`)
         }
         if (hasScale) {
-          ops.push(`        float3 xformOp:scale = (${s[0]}, ${s[1]}, ${s[2]})`)
+          ops.push(`            float3 xformOp:scale = (${s[0]}, ${s[1]}, ${s[2]})`)
         }
         const opNames = []
         if (hasTranslate) opNames.push('"xformOp:translate"')
         if (hasRotate) opNames.push('"xformOp:orient"')
         if (hasScale) opNames.push('"xformOp:scale"')
-        xformOps = ops.join('\n') + `\n        uniform token[] xformOpOrder = [${opNames.join(', ')}]`
+        xformOps = ops.join('\n') + `\n            uniform token[] xformOpOrder = [${opNames.join(', ')}]`
       }
 
       meshDefs.push(`
-    def Xform "${meshName}" (
-        prepend apiSchemas = ["MaterialBindingAPI"]
-    )
-    {
-${xformOps}
-        rel material:binding = </${materialBinding}>
-
-        def Mesh "${meshName}_mesh"
+        def Xform "${meshName}" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
         {
-            int[] faceVertexCounts = [${faceVertexCounts}]
-            int[] faceVertexIndices = [${faceVertexIndices}]
-            point3f[] points = [${positions.join(', ')}]${normals.length > 0 ? `\n            normal3f[] normals = [${normals.join(', ')}]` : ''}${uvs.length > 0 ? `\n            float2[] primvars:st = [${uvs.join(', ')}] (\n                interpolation = "vertex"\n            )` : ''}
-        }
-    }`)
+${xformOps}
+            rel material:binding = </Root/Materials/${materialBinding}>
 
-      meshIndex++
+            def Mesh "${meshName}_mesh"
+            {
+                uniform token subdivisionScheme = "none"
+                int[] faceVertexCounts = [${faceVertexCounts}]
+                int[] faceVertexIndices = [${faceVertexIndices}]
+                point3f[] points = [${positions.join(', ')}]${normals.length > 0 ? `\n                normal3f[] normals = [${normals.join(', ')}]` : ''}${uvs.length > 0 ? `\n                texCoord2f[] primvars:st = [${uvs.join(', ')}] (\n                    interpolation = "vertex"\n                )` : ''}
+            }
+        }`)
     }
   }
 
+  // Everything inside Root (the defaultPrim) — materials in a Materials scope
   const usda = `#usda 1.0
 (
     defaultPrim = "Root"
@@ -194,8 +255,11 @@ def Xform "Root"
     def Scope "Geom"
     {${meshDefs.join('\n')}
     }
+
+    def Scope "Materials"
+    {${materialDefs.join('\n')}
+    }
 }
-${materialDefs.join('\n')}
 `
 
   return createUsdzZip(usda)
@@ -223,7 +287,6 @@ function createUsdzZip(usda: string): Uint8Array {
   const paddingNeeded = (64 - (localHeaderSize % 64)) % 64
   const paddedFileNameBytes = new Uint8Array(fileNameBytes.length + paddingNeeded)
   paddedFileNameBytes.set(fileNameBytes)
-  // Fill padding with spaces (valid in zip extra field? Actually we pad the filename area)
 
   // Build zip manually
   // Local file header

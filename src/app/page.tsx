@@ -141,13 +141,13 @@ export default function UploadPage() {
                 ) : (
                   <div>
                     <p className="text-steel-400 font-mono text-sm">Click to select file</p>
-                    <p className="text-steel-600 font-mono text-xs mt-1">.glb or .gltf only</p>
+                    <p className="text-steel-600 font-mono text-xs mt-1">.glb only</p>
                   </div>
                 )}
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".glb,.gltf"
+                  accept=".glb"
                   onChange={handleFileChange}
                   className="hidden"
                 />

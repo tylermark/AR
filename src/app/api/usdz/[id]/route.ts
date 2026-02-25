@@ -37,6 +37,7 @@ export async function GET(
         'Content-Length': String(usdzBuffer.byteLength),
         'Content-Disposition': `inline; filename="${params.id}.usdz"`,
         'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'public, max-age=3600',
       },
     })
   } catch (err) {

@@ -153,31 +153,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Model name is required' }, { status: 400 })
     }
 
-    // Validate file extension
+    // Validate file extension — only GLB (binary glTF) is supported.
+    // GLTF (JSON + external resources) cannot work as a single-file upload
+    // and breaks the USDZ converter / iOS AR pipeline.
     const fileName = file.name.toLowerCase()
-    if (!fileName.endsWith('.glb') && !fileName.endsWith('.gltf')) {
+    if (!fileName.endsWith('.glb')) {
       return NextResponse.json(
-        { error: 'Only .glb and .gltf files are supported' },
+        { error: 'Only .glb files are supported. Convert GLTF or FBX to GLB before uploading.' },
         { status: 400 }
       )
     }
 
     // Generate unique filename
-    const fileExt = fileName.endsWith('.glb') ? 'glb' : 'gltf'
-    const uniqueFileName = `${uuidv4()}.${fileExt}`
+    const uniqueFileName = `${uuidv4()}.glb`
 
     // Convert file to ArrayBuffer then to Buffer for upload
     const arrayBuffer = await file.arrayBuffer()
     let buffer = Buffer.from(arrayBuffer)
 
     // Optimize GLB for iOS AR compatibility (strip extensions, ensure PBR materials)
-    if (fileExt === 'glb') {
-      try {
-        const optimized = await optimizeGlbForAR(new Uint8Array(buffer))
-        buffer = Buffer.from(optimized)
-      } catch (err) {
-        console.error('GLB optimization failed, using original file:', err)
-      }
+    try {
+      const optimized = await optimizeGlbForAR(new Uint8Array(buffer))
+      buffer = Buffer.from(optimized)
+    } catch (err) {
+      console.error('GLB optimization failed, using original file:', err)
     }
 
     // Optionally parse IFC file for richer property data
@@ -230,7 +229,7 @@ export async function POST(request: NextRequest) {
     const { error: storageError } = await serviceClient.storage
       .from('models')
       .upload(uniqueFileName, buffer, {
-        contentType: file.type || 'model/gltf-binary',
+        contentType: 'model/gltf-binary',
         upsert: false,
       })
 
