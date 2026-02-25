@@ -148,10 +148,14 @@ describe('POST /api/upload', () => {
     expect(mockDbInsert).toHaveBeenCalledOnce()
   })
 
-  it('accepts .gltf files in addition to .glb', async () => {
-    const res = await POST(makeRequest(glbFile('scene.gltf'), 'GLTF Model'))
-    expect(res.status).toBe(200)
-    expect(mockStorageUpload).toHaveBeenCalledOnce()
+  it('returns 400 when a .gltf file is uploaded (only .glb is supported)', async () => {
+    const gltfFile = new File([new ArrayBuffer(8)], 'scene.gltf', { type: 'model/gltf+json' })
+    const res = await POST(makeRequest(gltfFile, 'GLTF Model'))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/only .glb/i)
+    expect(mockStorageUpload).not.toHaveBeenCalled()
   })
 
   // -------------------------------------------------------------------------
@@ -163,7 +167,7 @@ describe('POST /api/upload', () => {
     const body = await res.json()
 
     expect(res.status).toBe(400)
-    expect(body.error).toMatch(/only .glb and .gltf/i)
+    expect(body.error).toMatch(/only .glb/i)
     expect(mockStorageUpload).not.toHaveBeenCalled()
   })
 
@@ -173,7 +177,7 @@ describe('POST /api/upload', () => {
     const body = await res.json()
 
     expect(res.status).toBe(400)
-    expect(body.error).toMatch(/only .glb and .gltf/i)
+    expect(body.error).toMatch(/only .glb/i)
   })
 
   // -------------------------------------------------------------------------
