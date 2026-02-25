@@ -118,6 +118,27 @@ function generateMissingUVs(): Transform {
 }
 
 /**
+ * Applies Revit material colors from the plugin sidecar to GLB materials.
+ * Runs before dedup() so materials with different colors aren't merged.
+ * Matching is case-insensitive. Unmatched materials are left unchanged.
+ */
+function applyColorMap(colorMap: Record<string, number[]>): Transform {
+  return (document: Document) => {
+    const lowerMap: Record<string, number[]> = {}
+    for (const [name, color] of Object.entries(colorMap)) {
+      lowerMap[name.toLowerCase()] = color
+    }
+    for (const material of document.getRoot().listMaterials()) {
+      const name = material.getName() ?? ''
+      const color = lowerMap[name.toLowerCase()]
+      if (color && color.length >= 4) {
+        material.setBaseColorFactor([color[0], color[1], color[2], color[3]])
+      }
+    }
+  }
+}
+
+/**
  * Ensure every material has valid PBR values (Quick Look needs these).
  */
 function ensurePBR(): Transform {
@@ -168,7 +189,10 @@ function ensureMaterials(): Transform {
  * Optimizes a GLB buffer for maximum compatibility with iOS Quick Look.
  * Specifically handles FBX2glTF output quirks from Revit exports.
  */
-export async function optimizeGlbForAR(inputBuffer: Uint8Array): Promise<Uint8Array> {
+export async function optimizeGlbForAR(
+  inputBuffer: Uint8Array,
+  colorMap?: Record<string, number[]>
+): Promise<Uint8Array> {
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS)
 
   const document = await io.readBinary(inputBuffer)
@@ -179,6 +203,9 @@ export async function optimizeGlbForAR(inputBuffer: Uint8Array): Promise<Uint8Ar
     removeSkinning(),
     removeCamerasAndLights(),
     removeNonTrianglePrimitives(),
+
+    // Color injection — runs before dedup() so white materials aren't merged
+    ...(colorMap && Object.keys(colorMap).length > 0 ? [applyColorMap(colorMap)] : []),
 
     // Phase 2: Standard glTF optimization
     metalRough(),
