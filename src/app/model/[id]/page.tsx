@@ -58,7 +58,10 @@ export default function ModelPage() {
 
   const annotations: Annotation[] = Array.isArray(model.annotations) ? model.annotations : []
 
-  const glbSrc = model.file_url
+  // Use our GLB proxy for iOS — ensures correct Content-Type header
+  // (Supabase Storage may not serve model/gltf-binary correctly for Quick Look)
+  const glbProxy = `/api/glb/${model.id}`
+  const glbSrc = glbProxy
 
   // Build a minimal label for the AR hotspot — just the element ID or index.
   function getShortLabel(ann: Annotation): string {
@@ -93,9 +96,10 @@ export default function ModelPage() {
           {/* @ts-expect-error model-viewer is a custom element */}
           <model-viewer
             src={glbSrc}
+            ios-src={glbSrc}
             alt={`3D model of ${model.name}`}
             ar
-            ar-modes="webxr scene-viewer quick-look"
+            ar-modes="scene-viewer quick-look webxr"
             camera-controls
             shadow-intensity="1"
             style={{

@@ -1,29 +1,64 @@
-import { Document, NodeIO } from '@gltf-transform/core'
+import { Document, NodeIO, Primitive } from '@gltf-transform/core'
 import type { Transform } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
-import { dedup, flatten, metalRough } from '@gltf-transform/functions'
+import { dedup, flatten, metalRough, prune, normals } from '@gltf-transform/functions'
 
 /**
  * Strip all extras (FBX metadata) that confuse iOS Quick Look.
  */
 function cleanExtras(): Transform {
   return (document: Document) => {
-    for (const material of document.getRoot().listMaterials()) {
-      material.setExtras({})
-    }
-    for (const node of document.getRoot().listNodes()) {
-      node.setExtras({})
-    }
+    document.getRoot().setExtras({})
+    for (const scene of document.getRoot().listScenes()) scene.setExtras({})
+    for (const material of document.getRoot().listMaterials()) material.setExtras({})
+    for (const node of document.getRoot().listNodes()) node.setExtras({})
+    for (const mesh of document.getRoot().listMeshes()) mesh.setExtras({})
+    for (const accessor of document.getRoot().listAccessors()) accessor.setExtras({})
+    for (const buffer of document.getRoot().listBuffers()) buffer.setExtras({})
+  }
+}
+
+/**
+ * Ensure all meshes use TRIANGLES mode (4). iOS Quick Look only supports triangles.
+ */
+function forceTriangles(): Transform {
+  return (document: Document) => {
     for (const mesh of document.getRoot().listMeshes()) {
-      mesh.setExtras({})
+      for (const prim of mesh.listPrimitives()) {
+        if (prim.getMode() !== Primitive.Mode.TRIANGLES) {
+          prim.setMode(Primitive.Mode.TRIANGLES)
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Ensure every material has valid PBR values (Quick Look needs these).
+ */
+function ensurePBR(): Transform {
+  return (document: Document) => {
+    for (const material of document.getRoot().listMaterials()) {
+      // Ensure base color factor exists
+      const bc = material.getBaseColorFactor()
+      if (!bc || bc.some((v: number) => isNaN(v))) {
+        material.setBaseColorFactor([0.8, 0.8, 0.8, 1.0])
+      }
+      // Clamp metallic/roughness to valid range
+      const metallic = material.getMetallicFactor()
+      if (isNaN(metallic) || metallic < 0 || metallic > 1) {
+        material.setMetallicFactor(0.0)
+      }
+      const roughness = material.getRoughnessFactor()
+      if (isNaN(roughness) || roughness < 0 || roughness > 1) {
+        material.setRoughnessFactor(1.0)
+      }
     }
   }
 }
 
 /**
  * Optimizes a GLB buffer for maximum compatibility with iOS Quick Look.
- * After gltf-transform processing, patches the raw GLB JSON to add
- * missing accessor min/max bounds (required by Quick Look).
  */
 export async function optimizeGlbForAR(inputBuffer: Uint8Array): Promise<Uint8Array> {
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS)
@@ -34,18 +69,31 @@ export async function optimizeGlbForAR(inputBuffer: Uint8Array): Promise<Uint8Ar
     metalRough(),
     dedup(),
     flatten(),
+    prune(),
+    normals({ overwrite: false }),
     cleanExtras(),
+    forceTriangles(),
+    ensurePBR(),
   )
 
-  // Strip all extensions
+  // Strip ALL extensions — Quick Look only supports core glTF 2.0
   const root = document.getRoot()
   for (const ext of root.listExtensionsUsed()) {
     ext.dispose()
   }
 
+  // Ensure accessor min/max are computed by gltf-transform
+  for (const accessor of root.listAccessors()) {
+    if (accessor.getCount() > 0) {
+      // Reading min/max forces gltf-transform to compute them on write
+      accessor.getMin(new Array(accessor.getElementSize()).fill(0))
+      accessor.getMax(new Array(accessor.getElementSize()).fill(0))
+    }
+  }
+
   const output = await io.writeBinary(document)
 
-  // Post-process: patch accessor min/max in the raw GLB binary
+  // Post-process: patch accessor min/max in the raw GLB binary (belt & suspenders)
   return patchAccessorBounds(Buffer.from(output))
 }
 

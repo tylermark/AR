@@ -4,6 +4,17 @@ import { createServerSupabaseClient } from '@/lib/supabase'
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': '*',
+    },
+  })
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
@@ -31,8 +42,11 @@ export async function GET(
     status: 200,
     headers: {
       'Content-Type': 'model/gltf-binary',
-      'Content-Disposition': 'inline; filename="model.glb"',
+      'Content-Length': String(glbBuffer.byteLength),
+      'Content-Disposition': `inline; filename="${params.id}.glb"`,
       'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': '*',
       'Cache-Control': 'public, max-age=86400',
     },
   })
