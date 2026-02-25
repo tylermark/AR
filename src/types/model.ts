@@ -12,6 +12,9 @@ export interface Model {
   created_at: string
   annotations: Annotation[]
   company_id?: string
+  sheet_number?: string
+  revision?: string
+  parent_id?: string
 }
 
 export interface UploadResponse {
@@ -22,6 +25,9 @@ export interface UploadResponse {
   annotations: Annotation[]
   ifcEnriched?: number
   glbOnly?: number
+  sheet_number?: string
+  revision?: string
+  parent_id?: string
 }
 
 export interface Company {

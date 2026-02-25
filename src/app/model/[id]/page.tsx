@@ -77,9 +77,17 @@ export default function ModelPage() {
             <p className="text-xs font-mono text-steel-500 uppercase tracking-widest mb-1">
               AR Model Viewer
             </p>
-            <h1 className="text-xl font-bold text-teal-400 font-mono tracking-wide">
-              {model.name}
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-teal-400 font-mono tracking-wide">
+                {model.name}
+              </h1>
+              {model.sheet_number && (
+                <span className="text-steel-400 font-mono text-xs bg-steel-800 border border-steel-700 px-2 py-0.5 rounded-sm">
+                  {model.sheet_number}
+                  {model.revision ? ` \u00B7 Rev ${model.revision}` : ''}
+                </span>
+              )}
+            </div>
           </div>
           <Link
             href="/dashboard"

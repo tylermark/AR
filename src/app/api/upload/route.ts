@@ -144,6 +144,8 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null
     const name = formData.get('name') as string | null
     const ifcFile = formData.get('ifc') as File | null
+    const sheetNumber = (formData.get('sheet_number') as string | null)?.trim() || null
+    const revision = (formData.get('revision') as string | null)?.trim() || 'A'
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -248,6 +250,23 @@ export async function POST(request: NextRequest) {
 
     const fileUrl = publicUrlData.publicUrl
 
+    // If a sheet number is provided, look for an existing model with the same
+    // sheet number in this company to link revisions together via parent_id.
+    let parentId: string | null = null
+    if (sheetNumber) {
+      const { data: existing } = await serviceClient
+        .from('models')
+        .select('id, parent_id')
+        .eq('company_id', companyId)
+        .eq('sheet_number', sheetNumber)
+        .order('created_at', { ascending: true })
+        .limit(1)
+      if (existing && existing.length > 0) {
+        // Use the original parent_id, or the existing record's own id if it's the first
+        parentId = existing[0].parent_id || existing[0].id
+      }
+    }
+
     // Insert metadata into models table
     const { data: modelData, error: dbError } = await serviceClient
       .from('models')
@@ -256,9 +275,21 @@ export async function POST(request: NextRequest) {
         file_url: fileUrl,
         annotations,
         company_id: companyId,
+        sheet_number: sheetNumber,
+        revision,
+        parent_id: parentId,  // null for first upload of a sheet
       })
       .select()
       .single()
+
+    // If this is the first upload for a sheet, set parent_id to its own id
+    if (modelData && sheetNumber && !parentId) {
+      await serviceClient
+        .from('models')
+        .update({ parent_id: modelData.id })
+        .eq('id', modelData.id)
+      modelData.parent_id = modelData.id
+    }
 
     if (dbError) {
       console.error('Database insert error:', dbError)
@@ -278,6 +309,9 @@ export async function POST(request: NextRequest) {
       annotations: modelData.annotations ?? [],
       ifcEnriched,
       glbOnly,
+      sheet_number: modelData.sheet_number,
+      revision: modelData.revision,
+      parent_id: modelData.parent_id,
     })
   } catch (error) {
     console.error('Upload route error:', error)

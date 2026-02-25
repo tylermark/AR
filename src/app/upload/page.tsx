@@ -9,6 +9,8 @@ export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null)
   const [ifcFile, setIfcFile] = useState<File | null>(null)
   const [name, setName] = useState('')
+  const [sheetNumber, setSheetNumber] = useState('')
+  const [revision, setRevision] = useState('A')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<UploadResponse | null>(null)
@@ -47,6 +49,8 @@ export default function UploadPage() {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('name', name.trim())
+      if (sheetNumber.trim()) formData.append('sheet_number', sheetNumber.trim())
+      if (revision.trim()) formData.append('revision', revision.trim())
       if (ifcFile) formData.append('ifc', ifcFile)
 
       const res = await fetch('/api/upload', {
@@ -81,6 +85,8 @@ export default function UploadPage() {
     setFile(null)
     setIfcFile(null)
     setName('')
+    setSheetNumber('')
+    setRevision('A')
     setError(null)
     setResult(null)
     setQrDataUrl(null)
@@ -119,6 +125,38 @@ export default function UploadPage() {
                            font-mono text-sm px-4 py-3 rounded-sm focus:outline-none focus:border-teal-500
                            transition-colors"
               />
+            </div>
+
+            {/* Sheet Number & Revision */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-mono text-steel-400 uppercase tracking-widest mb-2">
+                  Sheet Number
+                </label>
+                <input
+                  type="text"
+                  value={sheetNumber}
+                  onChange={(e) => setSheetNumber(e.target.value)}
+                  placeholder="e.g. A-101"
+                  className="w-full bg-arfab-black border border-steel-700 text-steel-100 placeholder-steel-600
+                             font-mono text-sm px-4 py-3 rounded-sm focus:outline-none focus:border-teal-500
+                             transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-mono text-steel-400 uppercase tracking-widest mb-2">
+                  Revision
+                </label>
+                <input
+                  type="text"
+                  value={revision}
+                  onChange={(e) => setRevision(e.target.value)}
+                  placeholder="e.g. A"
+                  className="w-full bg-arfab-black border border-steel-700 text-steel-100 placeholder-steel-600
+                             font-mono text-sm px-4 py-3 rounded-sm focus:outline-none focus:border-teal-500
+                             transition-colors"
+                />
+              </div>
             </div>
 
             {/* GLB File Input */}
@@ -224,9 +262,23 @@ export default function UploadPage() {
               </span>
             </div>
 
-            <div>
-              <p className="text-xs font-mono text-steel-400 uppercase tracking-widest mb-1">Model Name</p>
-              <p className="text-steel-100 font-mono">{result.name}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-1">
+                <p className="text-xs font-mono text-steel-400 uppercase tracking-widest mb-1">Model Name</p>
+                <p className="text-steel-100 font-mono text-sm">{result.name}</p>
+              </div>
+              {result.sheet_number && (
+                <div>
+                  <p className="text-xs font-mono text-steel-400 uppercase tracking-widest mb-1">Sheet</p>
+                  <p className="text-steel-100 font-mono text-sm">{result.sheet_number}</p>
+                </div>
+              )}
+              {result.revision && (
+                <div>
+                  <p className="text-xs font-mono text-steel-400 uppercase tracking-widest mb-1">Revision</p>
+                  <p className="text-steel-100 font-mono text-sm">Rev {result.revision}</p>
+                </div>
+              )}
             </div>
 
             {/* Extraction Summary */}
