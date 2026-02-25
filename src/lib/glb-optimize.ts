@@ -1,7 +1,7 @@
 import { Document, NodeIO, Primitive } from '@gltf-transform/core'
 import type { Transform } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
-import { dedup, flatten, metalRough, prune, normals } from '@gltf-transform/functions'
+import { dedup, flatten, metalRough, prune, normals, weld } from '@gltf-transform/functions'
 
 /**
  * Strip all extras (FBX metadata) that confuse iOS Quick Look.
@@ -28,6 +28,31 @@ function forceTriangles(): Transform {
         if (prim.getMode() !== Primitive.Mode.TRIANGLES) {
           prim.setMode(Primitive.Mode.TRIANGLES)
         }
+      }
+    }
+  }
+}
+
+/**
+ * Generate TEXCOORD_0 for any primitive missing UVs.
+ * Three.js USDZExporter (used by model-viewer for iOS AR) crashes without UVs.
+ */
+function generateMissingUVs(): Transform {
+  return (document: Document) => {
+    for (const mesh of document.getRoot().listMeshes()) {
+      for (const prim of mesh.listPrimitives()) {
+        if (prim.getAttribute('TEXCOORD_0')) continue
+
+        const position = prim.getAttribute('POSITION')
+        if (!position) continue
+
+        const count = position.getCount()
+        // Create a flat UV array (all zeros) — gives valid UVs without distortion
+        const uvData = new Float32Array(count * 2)
+        const uvAccessor = document.createAccessor()
+          .setType('VEC2')
+          .setArray(uvData)
+        prim.setAttribute('TEXCOORD_0', uvAccessor)
       }
     }
   }
@@ -70,7 +95,9 @@ export async function optimizeGlbForAR(inputBuffer: Uint8Array): Promise<Uint8Ar
     dedup(),
     flatten(),
     prune(),
+    weld(),
     normals({ overwrite: false }),
+    generateMissingUVs(),
     cleanExtras(),
     forceTriangles(),
     ensurePBR(),
