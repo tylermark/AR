@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { parseIfcBuffer } from '@/lib/ifc-parser'
+import { optimizeGlbForAR } from '@/lib/glb-optimize'
 import { v4 as uuidv4 } from 'uuid'
 import type { Annotation } from '@/types/model'
 
@@ -167,7 +168,17 @@ export async function POST(request: NextRequest) {
 
     // Convert file to ArrayBuffer then to Buffer for upload
     const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
+    let buffer = Buffer.from(arrayBuffer)
+
+    // Optimize GLB for iOS AR compatibility (strip extensions, ensure PBR materials)
+    if (fileExt === 'glb') {
+      try {
+        const optimized = await optimizeGlbForAR(new Uint8Array(buffer))
+        buffer = Buffer.from(optimized)
+      } catch (err) {
+        console.error('GLB optimization failed, using original file:', err)
+      }
+    }
 
     // Optionally parse IFC file for richer property data
     let ifcElements: ReturnType<typeof parseIfcBuffer> = []

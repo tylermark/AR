@@ -11,6 +11,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@gltf-transform/core": "^4.3.0",
+    "@gltf-transform/extensions": "^4.3.0",
+    "@gltf-transform/functions": "^4.3.0",
     "@google/model-viewer": "^4.1.0",
     "@stripe/stripe-js": "^8.8.0",
     "@supabase/ssr": "^0.8.0",
