@@ -19,16 +19,75 @@ function cleanExtras(): Transform {
 }
 
 /**
- * Ensure all meshes use TRIANGLES mode (4). iOS Quick Look only supports triangles.
+ * Remove non-triangle primitives entirely (LINES, POINTS, LINE_STRIP, etc).
+ * Just changing mode to TRIANGLES produces garbage geometry — delete them instead.
  */
-function forceTriangles(): Transform {
+function removeNonTrianglePrimitives(): Transform {
   return (document: Document) => {
     for (const mesh of document.getRoot().listMeshes()) {
       for (const prim of mesh.listPrimitives()) {
         if (prim.getMode() !== Primitive.Mode.TRIANGLES) {
-          prim.setMode(Primitive.Mode.TRIANGLES)
+          prim.dispose()
         }
       }
+    }
+  }
+}
+
+/**
+ * Remove all animations — Revit models are static, and animations from
+ * FBX2glTF break USDZ conversion.
+ */
+function removeAnimations(): Transform {
+  return (document: Document) => {
+    for (const anim of document.getRoot().listAnimations()) {
+      anim.dispose()
+    }
+  }
+}
+
+/**
+ * Remove skinning data (JOINTS_0, WEIGHTS_0) and skin references.
+ * FBX2glTF sometimes produces these for static Revit geometry.
+ * USDZ/Quick Look doesn't support skeletal animation.
+ */
+function removeSkinning(): Transform {
+  return (document: Document) => {
+    for (const skin of document.getRoot().listSkins()) {
+      skin.dispose()
+    }
+    for (const node of document.getRoot().listNodes()) {
+      node.setSkin(null)
+    }
+    for (const mesh of document.getRoot().listMeshes()) {
+      for (const prim of mesh.listPrimitives()) {
+        const joints = prim.getAttribute('JOINTS_0')
+        if (joints) {
+          prim.setAttribute('JOINTS_0', null)
+          joints.dispose()
+        }
+        const weights = prim.getAttribute('WEIGHTS_0')
+        if (weights) {
+          prim.setAttribute('WEIGHTS_0', null)
+          weights.dispose()
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Remove cameras and lights that FBX2glTF may export from the Revit scene.
+ */
+function removeCamerasAndLights(): Transform {
+  return (document: Document) => {
+    for (const camera of document.getRoot().listCameras()) {
+      camera.dispose()
+    }
+    // Lights are typically in extensions (KHR_lights_punctual) which we strip later,
+    // but also clear node camera references
+    for (const node of document.getRoot().listNodes()) {
+      node.setCamera(null)
     }
   }
 }
@@ -83,7 +142,31 @@ function ensurePBR(): Transform {
 }
 
 /**
+ * Create a default material and assign it to any primitives that have no material.
+ * model-viewer's USDZExporter can crash on null materials.
+ */
+function ensureMaterials(): Transform {
+  return (document: Document) => {
+    let defaultMat: ReturnType<Document['createMaterial']> | null = null
+    for (const mesh of document.getRoot().listMeshes()) {
+      for (const prim of mesh.listPrimitives()) {
+        if (!prim.getMaterial()) {
+          if (!defaultMat) {
+            defaultMat = document.createMaterial('Default')
+              .setBaseColorFactor([0.8, 0.8, 0.8, 1.0])
+              .setMetallicFactor(0.0)
+              .setRoughnessFactor(1.0)
+          }
+          prim.setMaterial(defaultMat)
+        }
+      }
+    }
+  }
+}
+
+/**
  * Optimizes a GLB buffer for maximum compatibility with iOS Quick Look.
+ * Specifically handles FBX2glTF output quirks from Revit exports.
  */
 export async function optimizeGlbForAR(inputBuffer: Uint8Array): Promise<Uint8Array> {
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS)
@@ -91,16 +174,25 @@ export async function optimizeGlbForAR(inputBuffer: Uint8Array): Promise<Uint8Ar
   const document = await io.readBinary(inputBuffer)
 
   await document.transform(
+    // Phase 1: Strip FBX2glTF artifacts that break USDZ
+    removeAnimations(),
+    removeSkinning(),
+    removeCamerasAndLights(),
+    removeNonTrianglePrimitives(),
+
+    // Phase 2: Standard glTF optimization
     metalRough(),
     dedup(),
     flatten(),
     prune(),
     weld(),
     normals({ overwrite: false }),
+
+    // Phase 3: iOS Quick Look compatibility
     generateMissingUVs(),
     cleanExtras(),
-    forceTriangles(),
     ensurePBR(),
+    ensureMaterials(),
   )
 
   // Strip ALL extensions — Quick Look only supports core glTF 2.0
