@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import QRCode from 'qrcode'
 import type { Model } from '@/types/model'
-import { createClient } from '@/lib/supabase'
 
 interface ModelWithQR extends Model {
   qrDataUrl: string | null
@@ -35,7 +34,7 @@ export default function DashboardPage() {
             try {
               const qrDataUrl = await QRCode.toDataURL(
                 `${baseUrl}/model/${model.id}`,
-                { width: 200, margin: 2, color: { dark: '#f59e0b', light: '#0a0a0a' } }
+                { width: 200, margin: 2, color: { dark: '#14b8a6', light: '#0a0a0a' } }
               )
               return { ...model, qrDataUrl }
             } catch {
@@ -54,12 +53,6 @@ export default function DashboardPage() {
 
     fetchModels()
   }, [router])
-
-  async function handleLogout() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    window.location.href = '/login'
-  }
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
@@ -80,39 +73,29 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-arfab-black py-12 px-4">
+    <main className="py-12 px-4">
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-amber-400 tracking-widest uppercase font-mono">
+            <h1 className="text-3xl font-bold text-teal-400 tracking-widest uppercase font-mono">
               Dashboard
             </h1>
             <p className="text-steel-400 mt-1 text-sm font-mono">
               {loading ? 'Loading...' : `${models.length} model${models.length !== 1 ? 's' : ''} uploaded`}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="bg-amber-500 hover:bg-amber-400 text-arfab-black font-mono font-bold
-                         uppercase tracking-widest text-xs px-5 py-3 rounded-sm transition-colors"
-            >
-              + Upload Model
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="text-steel-400 hover:text-red-400 font-mono text-xs uppercase
-                         tracking-widest transition-colors border border-steel-700
-                         hover:border-red-800 px-3 py-2 rounded-sm"
-            >
-              Log Out
-            </button>
-          </div>
+          <Link
+            href="/upload"
+            className="bg-teal-500 hover:bg-teal-400 text-arfab-black font-mono font-bold
+                       uppercase tracking-widest text-xs px-5 py-3 rounded-sm transition-colors"
+          >
+            + Upload Model
+          </Link>
         </div>
 
         {loading && (
           <div className="flex items-center justify-center py-24">
-            <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
             <span className="ml-3 text-steel-400 font-mono text-sm">Loading models...</span>
           </div>
         )}
@@ -127,8 +110,8 @@ export default function DashboardPage() {
           <div className="text-center py-24 border border-dashed border-steel-800 rounded-sm">
             <p className="text-steel-500 font-mono text-sm mb-4">No models uploaded yet.</p>
             <Link
-              href="/"
-              className="text-amber-400 hover:text-amber-300 font-mono text-sm underline underline-offset-4"
+              href="/upload"
+              className="text-teal-400 hover:text-teal-300 font-mono text-sm underline underline-offset-4"
             >
               Upload your first model
             </Link>
@@ -145,7 +128,7 @@ export default function DashboardPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-amber-400 font-mono font-bold text-sm truncate">
+                    <p className="text-teal-400 font-mono font-bold text-sm truncate">
                       {model.name}
                     </p>
                     <p className="text-steel-500 font-mono text-xs mt-1">
@@ -154,9 +137,9 @@ export default function DashboardPage() {
                   </div>
                   <Link
                     href={`/model/${model.id}`}
-                    className="flex-shrink-0 text-steel-400 hover:text-amber-400 font-mono text-xs
+                    className="flex-shrink-0 text-steel-400 hover:text-teal-400 font-mono text-xs
                                uppercase tracking-widest transition-colors border border-steel-700
-                               hover:border-amber-500 px-2 py-1 rounded-sm"
+                               hover:border-teal-500 px-2 py-1 rounded-sm"
                   >
                     View AR
                   </Link>
@@ -184,7 +167,7 @@ export default function DashboardPage() {
                 <button
                   onClick={() => handleDownloadQR(model)}
                   disabled={!model.qrDataUrl}
-                  className="w-full bg-steel-800 border border-steel-600 hover:border-amber-500
+                  className="w-full bg-steel-800 border border-steel-600 hover:border-teal-500
                              disabled:opacity-40 disabled:cursor-not-allowed text-steel-100
                              font-mono text-xs uppercase tracking-widest py-2 rounded-sm
                              transition-colors"

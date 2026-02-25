@@ -49,7 +49,7 @@ export default function ModelPage() {
     return (
       <main className="min-h-screen bg-arfab-black flex items-center justify-center">
         <div className="flex items-center gap-3">
-          <span className="inline-block w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+          <span className="inline-block w-5 h-5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
           <span className="text-steel-400 font-mono text-sm uppercase tracking-widest">Loading model...</span>
         </div>
       </main>
@@ -77,13 +77,13 @@ export default function ModelPage() {
             <p className="text-xs font-mono text-steel-500 uppercase tracking-widest mb-1">
               AR Model Viewer
             </p>
-            <h1 className="text-xl font-bold text-amber-400 font-mono tracking-wide">
+            <h1 className="text-xl font-bold text-teal-400 font-mono tracking-wide">
               {model.name}
             </h1>
           </div>
           <Link
             href="/dashboard"
-            className="text-steel-400 hover:text-amber-400 font-mono text-xs uppercase tracking-widest transition-colors"
+            className="text-steel-400 hover:text-teal-400 font-mono text-xs uppercase tracking-widest transition-colors"
           >
             &larr; Dashboard
           </Link>
@@ -103,7 +103,7 @@ export default function ModelPage() {
               height: '100%',
               minHeight: '70vh',
               backgroundColor: '#0a0a0a',
-              '--progress-bar-color': '#f59e0b',
+              '--progress-bar-color': '#14b8a6',
               '--progress-mask': '#0a0a0a',
             }}
           >
@@ -141,8 +141,8 @@ export default function ModelPage() {
               <div key={ann.id} className="border border-steel-800 rounded-sm bg-steel-900">
                 {/* Part header */}
                 <div className="px-4 py-3 border-b border-steel-800 flex items-center gap-2">
-                  <span className="inline-block w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
-                  <span className="text-amber-400 font-mono text-sm font-semibold truncate">
+                  <span className="inline-block w-2 h-2 rounded-full bg-teal-500 flex-shrink-0" />
+                  <span className="text-teal-400 font-mono text-sm font-semibold truncate">
                     {getShortLabel(ann)}
                   </span>
                 </div>

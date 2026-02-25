@@ -30,8 +30,8 @@ model-viewer {
 /* model-viewer hotspot labels — always visible in 3D and AR */
 .hotspot-btn {
   background: rgba(0, 0, 0, 0.75);
-  border: 1px solid #f59e0b;
-  color: #fbbf24;
+  border: 1px solid #14b8a6;
+  color: #2dd4bf;
   border-radius: 4px;
   padding: 2px 6px;
   font-family: monospace;
@@ -53,6 +53,6 @@ model-viewer {
   transform: translateX(-50%);
   width: 4px;
   height: 4px;
-  background: #f59e0b;
+  background: #14b8a6;
   border-radius: 50%;
 }

@@ -195,7 +195,7 @@ export default function ARViewer({ modelUrl, annotations }: ARViewerProps) {
     <div className="relative">
       <button
         onClick={startAR}
-        className="absolute bottom-6 right-6 bg-amber-500 hover:bg-amber-400
+        className="absolute bottom-6 right-6 bg-teal-500 hover:bg-teal-400
                    text-black font-mono font-bold uppercase tracking-widest
                    text-sm px-5 py-3 rounded-sm transition-colors shadow-lg z-10"
       >
@@ -216,7 +216,7 @@ export default function ARViewer({ modelUrl, annotations }: ARViewerProps) {
             Exit AR
           </button>
           {!placed && (
-            <p className="fixed bottom-10 left-0 right-0 z-[60] text-center text-amber-400
+            <p className="fixed bottom-10 left-0 right-0 z-[60] text-center text-teal-400
                           font-mono text-sm pointer-events-none">
               Point at a flat surface and tap to place
             </p>

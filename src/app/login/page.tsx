@@ -30,31 +30,31 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-arfab-black flex items-center justify-center px-4">
+    <main className="flex items-center justify-center px-4 py-20">
       <div className="w-full max-w-md">
-        <h1 className="text-2xl font-bold text-amber-400 font-mono uppercase tracking-widest mb-8 text-center">
+        <h1 className="text-2xl font-bold text-teal-400 font-mono uppercase tracking-widest mb-8 text-center">
           Log In
         </h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="bg-steel-900 border border-steel-700 rounded-sm p-6 space-y-4">
           <div>
             <label className="block text-steel-400 font-mono text-xs uppercase tracking-widest mb-1">Email</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
-              className="w-full bg-steel-900 border border-steel-700 text-steel-100 font-mono text-sm px-3 py-2 rounded-sm focus:outline-none focus:border-amber-500" />
+              className="w-full bg-arfab-black border border-steel-700 text-steel-100 font-mono text-sm px-3 py-2 rounded-sm focus:outline-none focus:border-teal-500 transition-colors" />
           </div>
           <div>
             <label className="block text-steel-400 font-mono text-xs uppercase tracking-widest mb-1">Password</label>
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} required
-              className="w-full bg-steel-900 border border-steel-700 text-steel-100 font-mono text-sm px-3 py-2 rounded-sm focus:outline-none focus:border-amber-500" />
+              className="w-full bg-arfab-black border border-steel-700 text-steel-100 font-mono text-sm px-3 py-2 rounded-sm focus:outline-none focus:border-teal-500 transition-colors" />
           </div>
           {error && <p className="text-red-400 font-mono text-xs">{error}</p>}
           <button type="submit" disabled={loading}
-            className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-mono font-bold uppercase tracking-widest text-sm py-3 rounded-sm transition-colors">
+            className="w-full bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-black font-mono font-bold uppercase tracking-widest text-sm py-3 rounded-sm transition-colors">
             {loading ? 'Logging in...' : 'Log In'}
           </button>
         </form>
         <p className="text-steel-500 font-mono text-xs text-center mt-6">
           No account?{' '}
-          <Link href="/signup" className="text-amber-400 hover:text-amber-300">Sign up</Link>
+          <Link href="/signup" className="text-teal-400 hover:text-teal-300">Sign up</Link>
         </p>
       </div>
     </main>
