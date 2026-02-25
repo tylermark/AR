@@ -96,10 +96,9 @@ export default function ModelPage() {
           {/* @ts-expect-error model-viewer is a custom element */}
           <model-viewer
             src={glbSrc}
-            ios-src={glbSrc}
             alt={`3D model of ${model.name}`}
             ar
-            ar-modes="scene-viewer quick-look webxr"
+            ar-modes="webxr scene-viewer quick-look"
             camera-controls
             shadow-intensity="1"
             style={{
