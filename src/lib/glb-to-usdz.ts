@@ -111,7 +111,7 @@ export async function convertGlbToUsdz(glbBuffer: Uint8Array): Promise<Uint8Arra
 
   // Generate a unique mesh name
   function getUniqueMeshName(node: GltfNode, mesh: { getName(): string }): string {
-    let base = safeName(node.getName() || mesh.getName() || 'Mesh')
+    const base = safeName(node.getName() || mesh.getName() || 'Mesh')
     let name = base
     let counter = 1
     while (usedMeshNames.has(name)) {
