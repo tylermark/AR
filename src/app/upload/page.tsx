@@ -3,6 +3,8 @@
 import { useState, useRef } from 'react'
 import Link from 'next/link'
 import QRCode from 'qrcode'
+import { createClient } from '@/lib/supabase'
+import { v4 as uuidv4 } from 'uuid'
 import type { UploadResponse } from '@/types/model'
 
 export default function UploadPage() {
@@ -46,21 +48,59 @@ export default function UploadPage() {
     setQrDataUrl(null)
 
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('name', name.trim())
-      if (sheetNumber.trim()) formData.append('sheet_number', sheetNumber.trim())
-      if (revision.trim()) formData.append('revision', revision.trim())
-      if (ifcFile) formData.append('ifc', ifcFile)
+      const supabase = createClient()
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        throw new Error('Please sign in to upload models.')
+      }
 
-      const res = await fetch('/api/upload', {
+      const fileId = uuidv4()
+
+      // Phase 1: Upload GLB directly to Supabase Storage (bypasses Vercel 4.5MB limit)
+      const glbPath = `${user.id}/${fileId}.glb`
+      const { error: glbError } = await supabase.storage
+        .from('raw-uploads')
+        .upload(glbPath, file, {
+          contentType: 'model/gltf-binary',
+          upsert: false,
+        })
+      if (glbError) {
+        throw new Error(`Failed to upload GLB: ${glbError.message}`)
+      }
+
+      // Phase 1b: Upload IFC if present (non-fatal)
+      let ifcStoragePath: string | undefined
+      if (ifcFile) {
+        const ifcPath = `${user.id}/${fileId}.ifc`
+        const { error: ifcError } = await supabase.storage
+          .from('raw-uploads')
+          .upload(ifcPath, ifcFile, {
+            contentType: 'application/x-ifc',
+            upsert: false,
+          })
+        if (!ifcError) {
+          ifcStoragePath = ifcPath
+        } else {
+          console.warn('IFC upload failed, continuing without:', ifcError.message)
+        }
+      }
+
+      // Phase 2: POST JSON to /api/upload/process for server-side optimization
+      const res = await fetch('/api/upload/process', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storagePath: glbPath,
+          name: name.trim(),
+          sheetNumber: sheetNumber.trim() || undefined,
+          revision: revision.trim() || undefined,
+          ifcStoragePath,
+        }),
       })
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || `Upload failed (${res.status})`)
+        throw new Error(body.error || `Processing failed (${res.status})`)
       }
 
       const data: UploadResponse = await res.json()
